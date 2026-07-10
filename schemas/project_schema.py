@@ -1,10 +1,10 @@
 from typing import Optional
 
-from pydantic import EmailStr, BaseModel
+from pydantic_settings import BaseSettings
 from sqlmodel import Field
 
 
-class ProjectSchema(BaseModel):
+class ProjectSchema(BaseSettings):
     id: Optional[int] = Field(default=None, primary_key=True)
     title: Optional[str] = None
     program_kind: Optional[str] = None

@@ -20,15 +20,19 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 # CREATE User
-@router.post("/users/")
+@router.post("/signup")
 def create_user(user: UserSchema, db: Session = Depends(get_db)):
     if db.query(User).filter(User.email == user.email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    new_user = User(**user.dict())
+    if user.username is None:
+        raise HTTPException(status_code=400, detail="Username not provided")
     if user.password is None:
         raise HTTPException(status_code=400, detail="Password not provided")
+    if user.role is None:
+        raise HTTPException(status_code=400, detail="Authorisation not provided")
 
+    new_user = User(**user.dict())
     new_user.password = password_hash.hash(user.password)
     db.add(new_user)
     db.commit()

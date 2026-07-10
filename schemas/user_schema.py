@@ -1,16 +1,13 @@
-import datetime
 from typing import Optional
-from xmlrpc.client import DateTime
-
-from fastapi.openapi.models import Schema
-from pydantic import EmailStr, BaseModel
+from pydantic import EmailStr
+from pydantic_settings import BaseSettings
 
 
-class UserSchema(BaseModel):
+class UserSchema(BaseSettings):
     username: Optional[str] = None
     email: Optional[EmailStr] = None
     password: Optional[str] = None
-    authorisations: Optional[str] = None
+    role: Optional[str] = None
 
     class Config:
         from_attributes = True

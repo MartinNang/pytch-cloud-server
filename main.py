@@ -14,6 +14,8 @@ files_manager.init_files_root()
 async def lifespan(app: FastAPI):
     init_db()
     yield
+
+
 app = FastAPI(lifespan=lifespan)
 
 app.include_router(user_router, prefix="/api", tags=["Users"])
@@ -21,4 +23,4 @@ app.include_router(project_router, prefix="/api", tags=["Users"])
 
 @app.get("/")
 def root():
-    return {"message": "Welcome to the FastAPI CRUD API"}
+    return {"message": "Welcome to the Pytch Cloud Storage API"}
