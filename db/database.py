@@ -15,6 +15,6 @@ def get_db():
         db.close()
 
 def init_db():
-    pass
-    # if not engine.dialect(engine, "users"):
-        # Base.metadata.create_all(engine)
+    # pass
+    Base.metadata.drop_all(engine)
+    Base.metadata.create_all(engine)
