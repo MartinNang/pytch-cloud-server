@@ -21,6 +21,6 @@ app = FastAPI(lifespan=lifespan)
 app.include_router(user_router, prefix="/api", tags=["Users"])
 app.include_router(project_router, prefix="/api", tags=["Users"])
 
-@app.get("/")
+@app.get("/api/")
 def root():
     return {"message": "Welcome to the Pytch Cloud Storage API"}
