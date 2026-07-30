@@ -17,3 +17,6 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
 class Token(BaseModel):
     access_token: str
     token_type: str
+
+class TokenData(BaseModel):
+    username: str | None = None

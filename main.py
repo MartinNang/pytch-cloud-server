@@ -1,9 +1,10 @@
 # main.py
 import os
 from contextlib import asynccontextmanager
+from typing import Annotated
 
-from fastapi import FastAPI
-from controller.user_controller import router as user_router
+from fastapi import FastAPI, Depends
+from controller.user_controller import router as user_router, oauth2_scheme
 from controller.project_controller import router as project_router
 from db.database import init_db
 from utils import files_manager
@@ -20,6 +21,10 @@ app = FastAPI(lifespan=lifespan)
 
 app.include_router(user_router, prefix="/api", tags=["Users"])
 app.include_router(project_router, prefix="/api", tags=["Users"])
+
+@app.get("/api/token/")
+async def read_items(token: Annotated[str, Depends(oauth2_scheme)]):
+    return {"token": token}
 
 @app.get("/api/")
 def root():

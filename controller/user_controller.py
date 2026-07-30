@@ -1,31 +1,59 @@
 from datetime import timedelta
 from typing import Annotated
+
+import jwt
 from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from jwt import InvalidTokenError
 from sqlalchemy.orm import Session
 from starlette import status
 
+from config import settings
 from db.database import get_db
-# from model import UserRole
 from model.user import User
 from model.user_roles import UserRoles
 from schemas.user_schema import UserSchema
+from utils.password_utils import verify_password, password_hash
 from utils.response_wrapper import api_response
-from pwdlib import PasswordHash
 
-from utils.token_utils import create_access_token, Token
+from utils.token_utils import create_access_token, Token, TokenData
 
 router = APIRouter()
-
-password_hash = PasswordHash.recommended()
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
+async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], db: Session = Depends(get_db)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
+        username = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+        token_data = TokenData(username=username)
+    except InvalidTokenError:
+        raise credentials_exception
+    user = db.query(User).filter(User.username == token_data.username).first()
+    if user is None:
+        raise credentials_exception
+    return user
+
+async def get_current_active_user(
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    if current_user:
+        raise HTTPException(status_code=400, detail="Inactive user")
+    return current_user
+
 # CREATE User
 @router.post("/signup")
-def create_user(user: UserSchema, response: Response, db: Session = Depends(get_db)):
+def create_user(user: UserSchema,
+                response: Response, db: Session = Depends(get_db)):
     if db.query(User).filter(User.email == user.email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
 
@@ -33,15 +61,15 @@ def create_user(user: UserSchema, response: Response, db: Session = Depends(get_
         raise HTTPException(status_code=400, detail="Username not provided")
     if user.password is None:
         raise HTTPException(status_code=400, detail="Password not provided")
-    # if user.role is None:
-        # raise HTTPException(status_code=400, detail="Authorisation not provided")
+    # if current_user is not None and current_user.role is not UserRoles.ADMIN and user.role is not None and user.role is not UserRoles.USER:
+    #     raise HTTPException(status_code=401, detail=f"Current user with id {current_user.id} is not authorisation to create user with role {user.role}")
 
     # TODO: check if user registering new user is admin (only if role is added and not user)
 
     new_user = User(**user.model_dump())
     new_user.password = password_hash.hash(user.password)
     if user.role is None:
-        new_user.role = UserRoles.USER
+        new_user.role = UserRoles.ADMIN
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
@@ -52,13 +80,31 @@ def create_user(user: UserSchema, response: Response, db: Session = Depends(get_
 
 # READ ALL Users
 @router.get("/users/")
-def get_users(db: Session = Depends(get_db)):
+def get_users(
+    response: Response,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Session = Depends(get_db)
+):
+    check_if_user_exists_and_active(current_user)
+
+    if current_user.role is not UserRoles.ADMIN:
+        raise HTTPException(status_code=401,
+                            detail=f"Current user with id {current_user.id} is not authorised to read this user")
+
     users = db.query(User).all()
     return api_response(data=users, message="All users retrieved")
 
 # READ Single User
 @router.get("/users/{user_id}")
-def get_user(user_id: str, db: Session = Depends(get_db)):
+def get_user(user_id: str, current_user: Annotated[User, Depends(get_current_user)], db: Session = Depends(get_db)):
+    check_if_user_exists_and_active(current_user)
+
+    if current_user.role is not UserRoles.ADMIN and current_user.id != user_id:
+        raise HTTPException(status_code=401,
+                            detail=f"Current user with id {current_user.id} is not authorised to read this user")
+
+    # TODO: implement educator access rights
+
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
         raise HTTPException(status_code=404, detail=f"User with id {user_id} not found")
@@ -66,7 +112,12 @@ def get_user(user_id: str, db: Session = Depends(get_db)):
 
 # UPDATE User
 @router.put("/users/{user_id}")
-def update_user(user_id: str, user_update: UserSchema, db: Session = Depends(get_db)):
+def update_user(user_id: str, current_user: Annotated[User, Depends(get_current_user)], user_update: UserSchema, db: Session = Depends(get_db)):
+    check_if_user_exists_and_active(current_user)
+
+    if current_user.role is not UserRoles.ADMIN and current_user.id != user_id:
+        raise HTTPException(status_code=401, detail=f"Current user with id {current_user.id} is not authorised to update this user")
+
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail=f"User with id {user_id} not found")
@@ -84,7 +135,12 @@ def update_user(user_id: str, user_update: UserSchema, db: Session = Depends(get
 
 # DELETE User
 @router.delete("/users/{user_id}")
-def delete_user(user_id: str, db: Session = Depends(get_db)):
+def delete_user(user_id: str, current_user: Annotated[User, Depends(get_current_user)], db: Session = Depends(get_db)):
+    check_if_user_exists_and_active(current_user)
+
+    if current_user.role is not UserRoles.ADMIN:
+        raise HTTPException(status_code=401, detail=f"Current user with id {current_user.id} is not authorised to delete user")
+
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail=f"User with id {user_id} not found")
@@ -93,6 +149,9 @@ def delete_user(user_id: str, db: Session = Depends(get_db)):
     db.commit()
     return api_response(message="User deleted successfully")
 
+
+DUMMY_HASH = password_hash.hash("dummypassword")
+
 # Sign in User
 @router.post("/signin")
 async def signin_for_access_token(
@@ -100,7 +159,16 @@ async def signin_for_access_token(
     db: Session = Depends(get_db)
 ):
     user = db.query(User).filter(User.username == form_data.username).first()
-    if not user or not password_hash.verify(form_data.password, user.password.strip()):
+    if not user:
+        # use dummy hash if user does not exist to keep response time consistent and prevent timing attacks
+        # see: https://fastapi.tiangolo.com/tutorial/security/oauth2-jwt/#hash-and-verify-the-passwords
+        verify_password(form_data.password, DUMMY_HASH)
+        raise HTTPException(
+            status_code=401,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if not password_hash.verify(form_data.password, user.password.strip()):
         raise HTTPException(
             status_code=401,
             detail="Incorrect username or password",
@@ -111,3 +179,14 @@ async def signin_for_access_token(
         data={"sub": user.username}, expires_delta=access_token_expires
     )
     return Token(access_token=access_token, token_type="bearer")
+
+@router.get("/user-profile")
+async def read_current_user(current_user: Annotated[User, Depends(get_current_user)]):
+    return current_user
+
+def check_if_user_exists_and_active(current_user: Annotated[User, Depends(get_current_user)]):
+    if current_user is None:
+        raise HTTPException(status_code=401, detail=f"No user signed in")
+
+    if not current_user.active:
+        raise HTTPException(status_code=401, detail=f"Current user with id {current_user.id} is not active")

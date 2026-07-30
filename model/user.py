@@ -3,7 +3,7 @@ import enum
 import uuid
 
 from db.database import Base
-from sqlalchemy import Column, TIMESTAMP, ForeignKey, Enum
+from sqlalchemy import Column, TIMESTAMP, ForeignKey, Enum, Boolean
 from sqlalchemy.dialects.postgresql import CHAR
 
 from model.user_roles import UserRoles
@@ -18,4 +18,5 @@ class User(Base):
     password = Column(CHAR(100), nullable=False)
     created_at = Column(TIMESTAMP, nullable=False, default=datetime.datetime.now(datetime.UTC))
     role = Column(Enum(UserRoles), nullable=False)
+    active = Column(Boolean, nullable=False, default=True)
     # TODO: look into amazon identity management to get inspiration for model
