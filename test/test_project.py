@@ -9,7 +9,7 @@ from schemas.project_schema import ProjectSchema
 from schemas.user_schema import UserSchema
 from utils.files_manager import get_test_resources_root
 from utils.response_wrapper import api_response
-from utils.test_utils import sign_up_user, create_test_user_schema, sign_in_user
+from utils.test_utils import sign_up_user, create_test_user_schema, sign_in_user, create_test_project_schema
 
 client = TestClient(app)
 
@@ -59,13 +59,8 @@ def test_create_project():
     access_token = sign_in_user(user).json().get("access_token")
 
     # create project
-    project: ProjectSchema = ProjectSchema()
-    project.id = "test_project_id"
-    project.title = "Test Project"
-    project.program_kind = "flat"
-    project.archived = False
-    project.user_id = user_id
-    project.status = "listed"
+    project = create_test_project_schema(user_id)
+
     response = client.post("/api/projects/",
                            headers={"Authorization": f"Bearer {access_token}"},
                            json=project.model_dump())
@@ -84,13 +79,8 @@ def test_upload_project():
     access_token = sign_in_user(user).json().get("access_token")
 
     # create project
-    project: ProjectSchema = ProjectSchema()
-    project.id = "test_project_id"
-    project.title = "Test Project"
-    project.program_kind = "flat"
-    project.archived = False
-    project.user_id = user_id
-    project.status = "listed"
+    project = create_test_project_schema(user_id)
+
     response = client.post("/api/projects/",
                            headers={"Authorization": f"Bearer {access_token}"},
                            json=project.model_dump())
@@ -118,13 +108,8 @@ def test_download_project():
     access_token = sign_in_user(user).json().get("access_token")
 
     # create project
-    project: ProjectSchema = ProjectSchema()
-    project.id = "test_project_id"
-    project.title = "Test Project"
-    project.program_kind = "flat"
-    project.archived = False
-    project.user_id = user_id
-    project.status = "listed"
+    project = create_test_project_schema(user_id)
+
     response = client.post("/api/projects/",
                            headers={"Authorization": f"Bearer {access_token}"},
                            json=project.model_dump())
@@ -157,13 +142,8 @@ def test_update_project_title():
     access_token = sign_in_user(user).json().get("access_token")
 
     # create project
-    project: ProjectSchema = ProjectSchema()
-    project.id = "test_project_id"
-    project.title = "Test Project"
-    project.program_kind = "flat"
-    project.archived = False
-    project.user_id = user_id
-    project.status = "listed"
+    project = create_test_project_schema(user_id)
+
     response = client.post("/api/projects/",
                            headers={"Authorization": f"Bearer {access_token}"},
                            json=project.model_dump())
@@ -191,13 +171,8 @@ def test_delete_project():
     access_token = sign_in_user(user).json().get("access_token")
 
     # create project
-    project: ProjectSchema = ProjectSchema()
-    project.id = "test_project_id"
-    project.title = "Test Project"
-    project.program_kind = "flat"
-    project.archived = False
-    project.user_id = user_id
-    project.status = "listed"
+    project = create_test_project_schema(user_id)
+
     response = client.post("/api/projects/",
                            headers={"Authorization": f"Bearer {access_token}"},
                            json=project.model_dump())

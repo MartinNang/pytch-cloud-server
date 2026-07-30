@@ -4,6 +4,7 @@ from flask import Response
 from starlette.testclient import TestClient
 
 from main import app
+from schemas.project_schema import ProjectSchema
 from schemas.user_schema import UserSchema
 
 client = TestClient(app)
@@ -32,3 +33,14 @@ def create_test_user_schema():
     user.password = "test"
 
     return user
+
+def create_test_project_schema(user_id: int) -> ProjectSchema:
+    project: ProjectSchema = ProjectSchema()
+    project.id = "test_project_id"
+    project.title = "Test Project"
+    project.program_kind = "flat"
+    project.archived = False
+    project.user_id = user_id
+    project.status = "listed"
+
+    return project
