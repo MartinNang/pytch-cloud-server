@@ -9,6 +9,7 @@ from schemas.project_schema import ProjectSchema
 from schemas.user_schema import UserSchema
 from utils.files_manager import get_test_resources_root
 from utils.response_wrapper import api_response
+from utils.test_utils import sign_up_user, create_test_user_schema, sign_in_user
 
 client = TestClient(app)
 
@@ -20,29 +21,42 @@ def run_around_tests():
 
 # READ ALL Projects - empty
 def test_get_projects():
-    response = client.get("/api/projects/")
+    # create user
+    user = create_test_user_schema()
+    sign_up_user(user)
+    access_token = sign_in_user(user).json().get("access_token")
+
+    response = client.get(
+        "/api/projects/",
+        headers={"Authorization": f"Bearer {access_token}"}
+    )
     assert response.status_code == HTTPStatus.OK
     assert response.json() == api_response(data=[], message="All projects retrieved")
 
 # READ Single Project - Not found
 def test_get_project_not_found():
-    response = client.get("/api/projects/0")
+    # create user
+    user = create_test_user_schema()
+    sign_up_user(user)
+    access_token = sign_in_user(user).json().get("access_token")
+
+    response = client.get(
+        "/api/projects/0",
+            headers={"Authorization": f"Bearer {access_token}"}
+    )
     assert response.status_code == HTTPStatus.NOT_FOUND
     assert response.json() == {"detail": "Project with id 0 not found"}
 
 # CREATE Project
 def test_create_project():
     # create user
-    user: UserSchema = UserSchema()
-    user.username = "Test User"
-    user.email = "test_user@test.com"
-    user.password = "test"
-    response = client.post("/api/signup/", json=user.model_dump())
-
-    assert response.status_code == HTTPStatus.CREATED
+    user = create_test_user_schema()
+    response = sign_up_user(user)
 
     user_id = response.json().get("data").get("id")
     assert user_id is not None
+
+    access_token = sign_in_user(user).json().get("access_token")
 
     # create project
     project: ProjectSchema = ProjectSchema()
@@ -52,23 +66,22 @@ def test_create_project():
     project.archived = False
     project.user_id = user_id
     project.status = "listed"
-    response = client.post("/api/projects/", json=project.model_dump())
+    response = client.post("/api/projects/",
+                           headers={"Authorization": f"Bearer {access_token}"},
+                           json=project.model_dump())
 
     assert response.status_code == HTTPStatus.CREATED
 
 # UPLOAD Project
 def test_upload_project():
     # create user
-    user: UserSchema = UserSchema()
-    user.username = "Test User"
-    user.email = "test_user@test.com"
-    user.password = "test"
-    response = client.post("/api/signup/", json=user.model_dump())
-
-    assert response.status_code == HTTPStatus.CREATED
+    user = create_test_user_schema()
+    response = sign_up_user(user)
 
     user_id = response.json().get("data").get("id")
     assert user_id is not None
+
+    access_token = sign_in_user(user).json().get("access_token")
 
     # create project
     project: ProjectSchema = ProjectSchema()
@@ -78,30 +91,31 @@ def test_upload_project():
     project.archived = False
     project.user_id = user_id
     project.status = "listed"
-    response = client.post("/api/projects/", json=project.model_dump())
+    response = client.post("/api/projects/",
+                           headers={"Authorization": f"Bearer {access_token}"},
+                           json=project.model_dump())
 
     assert response.status_code == HTTPStatus.CREATED
 
     # upload project zip file
     _test_project = get_test_resources_root().joinpath('test-project.pytch')
     _files = {'uploaded': _test_project.open('rb')}
-    response = client.post(f"/api/projects/{project.id}/upload", files=_files)
+    response = client.post(f"/api/projects/{project.id}/upload",
+                           headers={"Authorization": f"Bearer {access_token}"},
+                           files=_files)
 
     assert response.status_code == HTTPStatus.CREATED
 
 # DOWNLOAD Project
 def test_download_project():
     # create user
-    user: UserSchema = UserSchema()
-    user.username = "Test User"
-    user.email = "test_user@test.com"
-    user.password = "test"
-    response = client.post("/api/signup/", json=user.model_dump())
-
-    assert response.status_code == HTTPStatus.CREATED
+    user = create_test_user_schema()
+    response = sign_up_user(user)
 
     user_id = response.json().get("data").get("id")
     assert user_id is not None
+
+    access_token = sign_in_user(user).json().get("access_token")
 
     # create project
     project: ProjectSchema = ProjectSchema()
@@ -111,14 +125,18 @@ def test_download_project():
     project.archived = False
     project.user_id = user_id
     project.status = "listed"
-    response = client.post("/api/projects/", json=project.model_dump())
+    response = client.post("/api/projects/",
+                           headers={"Authorization": f"Bearer {access_token}"},
+                           json=project.model_dump())
 
     assert response.status_code == HTTPStatus.CREATED
 
     # upload project zip file
     _test_project = get_test_resources_root().joinpath('test-project.pytch')
     _files = {'uploaded': _test_project.open('rb')}
-    response = client.post(f"/api/projects/{project.id}/upload", files=_files)
+    response = client.post(f"/api/projects/{project.id}/upload",
+                           headers={"Authorization": f"Bearer {access_token}"},
+                           files=_files)
 
     assert response.status_code == HTTPStatus.CREATED
 
@@ -130,19 +148,13 @@ def test_download_project():
 # UPDATE Project - title
 def test_update_project_title():
     # create user
-    user: UserSchema = UserSchema()
-    user.username = "Test User"
-
-    user: UserSchema = UserSchema()
-    user.username = "Test User"
-    user.email = "test_user@test.com"
-    user.password = "test"
-    response = client.post("/api/signup/", json=user.model_dump())
-
-    assert response.status_code == HTTPStatus.CREATED
+    user = create_test_user_schema()
+    response = sign_up_user(user)
 
     user_id = response.json().get("data").get("id")
     assert user_id is not None
+
+    access_token = sign_in_user(user).json().get("access_token")
 
     # create project
     project: ProjectSchema = ProjectSchema()
@@ -152,13 +164,17 @@ def test_update_project_title():
     project.archived = False
     project.user_id = user_id
     project.status = "listed"
-    response = client.post("/api/projects/", json=project.model_dump())
+    response = client.post("/api/projects/",
+                           headers={"Authorization": f"Bearer {access_token}"},
+                           json=project.model_dump())
 
     assert response.status_code == HTTPStatus.CREATED
 
     # update project title
     project.title = "Test Project v2"
-    response = client.put(f"/api/projects/{project.id.strip()}", json=project.model_dump())
+    response = client.put(f"/api/projects/{project.id.strip()}",
+                          headers={"Authorization": f"Bearer {access_token}"},
+                          json=project.model_dump())
 
     assert response.status_code == HTTPStatus.OK
     assert response.json().get("data").get("title").strip() == project.title
@@ -166,19 +182,13 @@ def test_update_project_title():
 # DELETE Project
 def test_delete_project():
     # create user
-    user: UserSchema = UserSchema()
-    user.username = "Test User"
-
-    user: UserSchema = UserSchema()
-    user.username = "Test User"
-    user.email = "test_user@test.com"
-    user.password = "test"
-    response = client.post("/api/signup/", json=user.model_dump())
-
-    assert response.status_code == HTTPStatus.CREATED
+    user = create_test_user_schema()
+    response = sign_up_user(user)
 
     user_id = response.json().get("data").get("id")
     assert user_id is not None
+
+    access_token = sign_in_user(user).json().get("access_token")
 
     # create project
     project: ProjectSchema = ProjectSchema()
@@ -188,17 +198,25 @@ def test_delete_project():
     project.archived = False
     project.user_id = user_id
     project.status = "listed"
-    response = client.post("/api/projects/", json=project.model_dump())
+    response = client.post("/api/projects/",
+                           headers={"Authorization": f"Bearer {access_token}"},
+                           json=project.model_dump())
 
     assert response.status_code == HTTPStatus.CREATED
 
     # delete project
-    response = client.delete(f"/api/projects/{project.id}")
+    response = client.delete(
+        f"/api/projects/{project.id}",
+        headers={"Authorization": f"Bearer {access_token}"}
+    )
 
     assert response.status_code == HTTPStatus.OK
 
     # find single project
-    response = client.get(f"/api/projects/{project.id}")
+    response = client.get(
+        f"/api/projects/{project.id}",
+        headers={"Authorization": f"Bearer {access_token}"}
+)
 
     assert response.status_code == HTTPStatus.NOT_FOUND
 

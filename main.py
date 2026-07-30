@@ -4,10 +4,11 @@ from contextlib import asynccontextmanager
 from typing import Annotated
 
 from fastapi import FastAPI, Depends
-from controller.user_controller import router as user_router, oauth2_scheme
+from controller.user_controller import router as user_router
 from controller.project_controller import router as project_router
 from db.database import init_db
 from utils import files_manager
+from utils.token_utils import oauth2_scheme
 
 files_manager.init_files_root()
 

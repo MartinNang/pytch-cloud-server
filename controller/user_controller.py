@@ -16,39 +16,9 @@ from schemas.user_schema import UserSchema
 from utils.password_utils import verify_password, password_hash
 from utils.response_wrapper import api_response
 
-from utils.token_utils import create_access_token, Token, TokenData
+from utils.token_utils import create_access_token, Token, TokenData, get_current_user
 
 router = APIRouter()
-
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-
-async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], db: Session = Depends(get_db)):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
-        username = payload.get("sub")
-        if username is None:
-            raise credentials_exception
-        token_data = TokenData(username=username)
-    except InvalidTokenError:
-        raise credentials_exception
-    user = db.query(User).filter(User.username == token_data.username).first()
-    if user is None:
-        raise credentials_exception
-    return user
-
-async def get_current_active_user(
-    current_user: Annotated[User, Depends(get_current_user)],
-):
-    if current_user:
-        raise HTTPException(status_code=400, detail="Inactive user")
-    return current_user
 
 # CREATE User
 @router.post("/signup")
@@ -174,7 +144,7 @@ async def signin_for_access_token(
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token_expires = timedelta(minutes=settings.jwt_expiry_time)
     access_token = create_access_token(
         data={"sub": user.username}, expires_delta=access_token_expires
     )

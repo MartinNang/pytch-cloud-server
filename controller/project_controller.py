@@ -1,13 +1,17 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, Response, File
 from sqlalchemy.orm import Session
 from starlette import status
 from starlette.responses import FileResponse
 
 from db.database import get_db
+from model import User
 from model.project import Project
 from schemas.project_schema import ProjectSchema
 from utils import files_manager
 from utils.response_wrapper import api_response
+from utils.token_utils import get_current_user
 
 router = APIRouter()
 
@@ -19,7 +23,9 @@ def get_projects(db: Session = Depends(get_db)):
 
 # READ Single Project
 @router.get("/projects/{project_id}")
-def get_project(project_id: str, db: Session = Depends(get_db)):
+def get_project(project_id: str,
+                current_user: Annotated[User, Depends(get_current_user)],
+                db: Session = Depends(get_db)):
     project = db.query(Project).filter(Project.id == project_id).first()
     if project is None:
         raise HTTPException(status_code=404, detail=f"Project with id {project_id} not found")
@@ -27,7 +33,10 @@ def get_project(project_id: str, db: Session = Depends(get_db)):
 
 # CREATE Project
 @router.post("/projects/")
-async def create_project(project: ProjectSchema, response: Response, db: Session = Depends(get_db)):
+async def create_project(project: ProjectSchema,
+                         response: Response,
+                         current_user: Annotated[User, Depends(get_current_user)],
+                         db: Session = Depends(get_db)):
     if db.query(Project).filter(Project.id == project.id).first():
         raise HTTPException(status_code=400, detail="Project already created")
 
@@ -43,12 +52,14 @@ async def create_project(project: ProjectSchema, response: Response, db: Session
 
     return api_response(data=new_project, message="Project created successfully")
 
-# Download Project
+# Download a listed Project
 @router.get("/projects/{project_id}/download")
-async def load_project(project_id: str, db: Session = Depends(get_db)):
+async def load_project(project_id: str,
+                       db: Session = Depends(get_db)):
     project = db.query(Project).filter(Project.id == project_id).first()
     if project is None:
         raise HTTPException(status_code=404, detail=f"Project with id {project_id} not found")
+    # TODO: check if project is publically listed
 
     project_path = files_manager.get_files_root().joinpath(str(project.id).strip())
     file_location = f"{project_path}/project.pytch"
@@ -57,9 +68,14 @@ async def load_project(project_id: str, db: Session = Depends(get_db)):
 
     return res
 
+# TODO: Download an unlisted project (check if user has access to this project)
+
 # Upload Project
 @router.post("/projects/{project_id}/upload")
-async def create_project(project_id: str, response: Response, uploaded: UploadFile = File(...), db: Session = Depends(get_db)):
+async def create_project(project_id: str,
+                         response: Response,
+                         current_user: Annotated[User, Depends(get_current_user)],
+                         uploaded: UploadFile = File(...), db: Session = Depends(get_db)):
 
     # TODO: fix json body in file upload request not working
     project = db.query(Project).filter(Project.id == project_id).first()
@@ -77,7 +93,9 @@ async def create_project(project_id: str, response: Response, uploaded: UploadFi
 
 # UPDATE Project
 @router.put("/projects/{project_id}")
-def update_project(project_id: str, response: Response, project_update: ProjectSchema, db: Session = Depends(get_db)):
+def update_project(project_id: str, response: Response,
+                   current_user: Annotated[User, Depends(get_current_user)],
+                   project_update: ProjectSchema, db: Session = Depends(get_db)):
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail=f"Project with id {project_id} not found")
@@ -92,7 +110,9 @@ def update_project(project_id: str, response: Response, project_update: ProjectS
 
 # DELETE Project
 @router.delete("/projects/{project_id}")
-def delete_project(project_id: str, db: Session = Depends(get_db)):
+def delete_project(project_id: str,
+                   current_user: Annotated[User, Depends(get_current_user)],
+                   db: Session = Depends(get_db)):
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail=f"Project with id {project_id} not found")

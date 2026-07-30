@@ -8,34 +8,9 @@ from db.database import init_db
 from main import app
 from model import User
 from schemas.user_schema import UserSchema
-from utils.response_wrapper import api_response
+from utils.test_utils import create_test_user_schema, sign_up_user, sign_in_user
 
 client = TestClient(app)
-
-def sign_up_user(user: UserSchema) -> Response:
-    response = client.post("/api/signup/", json=user.model_dump())
-    assert response.status_code == HTTPStatus.CREATED
-    return response
-
-def sign_in_user(user: UserSchema) -> Response:
-    response = client.post(
-        "/api/signin/",
-        data=user.model_dump(),
-    )
-
-    assert response.status_code == HTTPStatus.OK
-    assert response.json().get("access_token") is not None
-    assert response.json().get("token_type") == "bearer"
-
-    return response
-
-def create_test_user_schema():
-    user = UserSchema()
-    user.username = "Test User"
-    user.email = "test_user@test.com"
-    user.password = "test"
-
-    return user
 
 @pytest.fixture(autouse=True)
 def run_around_tests():
