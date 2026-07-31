@@ -4,6 +4,8 @@ from contextlib import asynccontextmanager
 from typing import Annotated
 
 from fastapi import FastAPI, Depends
+from starlette.middleware.cors import CORSMiddleware
+
 from controller.user_controller import router as user_router
 from controller.project_controller import router as project_router
 from db.database import init_db
@@ -19,6 +21,22 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+
+origins = [
+    "http://localhost.tiangolo.com",
+    "https://localhost.tiangolo.com",
+    "http://localhost:3000",
+    "http://localhost:8080",
+    "https://pytch.org",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(user_router, prefix="/api", tags=["Users"])
 app.include_router(project_router, prefix="/api", tags=["Users"])
