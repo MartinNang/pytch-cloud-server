@@ -16,12 +16,12 @@ from schemas.user_schema import UserSchema
 from utils.password_utils import verify_password, password_hash
 from utils.response_wrapper import api_response
 
-from utils.token_utils import create_access_token, Token, TokenData, get_current_user
+from utils.token_utils import create_access_token, Token, TokenData, get_current_user, check_if_user_exists_and_active
 
 router = APIRouter()
 
 # CREATE User
-@router.post("/signup")
+@router.post("/sign-up")
 def create_user(user: UserSchema,
                 response: Response, db: Session = Depends(get_db)):
     if db.query(User).filter(User.email == user.email).first():
@@ -123,9 +123,10 @@ def delete_user(user_id: str, current_user: Annotated[User, Depends(get_current_
 DUMMY_HASH = password_hash.hash("dummypassword")
 
 # Sign in User
-@router.post("/signin")
+@router.post("/sign-in")
 async def signin_for_access_token(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
+    response: Response,
     db: Session = Depends(get_db)
 ):
     user = db.query(User).filter(User.username == form_data.username).first()
@@ -144,19 +145,14 @@ async def signin_for_access_token(
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    access_token_expires = timedelta(minutes=settings.jwt_expiry_time)
+    access_token_expires = timedelta(minutes=settings.jwt_access_token_expiry_time)
     access_token = create_access_token(
         data={"sub": user.username}, expires_delta=access_token_expires
     )
+    # response.set_cookie(key="token", value=access_token) TODO: set token in cookie
+
     return Token(access_token=access_token, token_type="bearer")
 
 @router.get("/user-profile")
 async def read_current_user(current_user: Annotated[User, Depends(get_current_user)]):
     return current_user
-
-def check_if_user_exists_and_active(current_user: Annotated[User, Depends(get_current_user)]):
-    if current_user is None:
-        raise HTTPException(status_code=401, detail=f"No user signed in")
-
-    if not current_user.active:
-        raise HTTPException(status_code=401, detail=f"Current user with id {current_user.id} is not active")

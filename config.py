@@ -8,7 +8,8 @@ class Settings(BaseSettings):
     db_url: str
     jwt_secret_key: str
     jwt_algorithm: str
-    jwt_expiry_time: int
+    jwt_access_token_expiry_time: int
+    jwt_refresh_token_expiry_time: int
 
     model_config = SettingsConfigDict(env_file=".env")
 
