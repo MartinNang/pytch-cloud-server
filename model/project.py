@@ -10,12 +10,12 @@ from sqlalchemy.sql.sqltypes import BOOLEANTYPE, Enum
 from db.database import Base
 
 class ProgramKind(enum.Enum):
-    flat = "flat"
-    perMethod = "per-method"
+    FLAT = "flat"
+    PER_METHOD = "per-method"
 
 class ProjectStatus(enum.Enum):
-    listed = "listed"
-    unlisted = "unlisted"
+    LISTED = "listed"
+    UNLISTED = "unlisted"
 
 class Project(Base):
     __tablename__ = 'projects'
