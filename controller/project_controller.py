@@ -7,7 +7,8 @@ from starlette.responses import FileResponse
 
 from db.database import get_db
 from model import User
-from model.project import Project
+from model.project import Project, ProjectStatus
+from model.user_roles import UserRoles
 from schemas.project_schema import ProjectSchema
 from utils import files_manager
 from utils.response_wrapper import api_response
@@ -26,6 +27,8 @@ def get_projects(db: Session = Depends(get_db)):
 def get_project(project_id: str,
                 current_user: Annotated[User, Depends(get_current_user)],
                 db: Session = Depends(get_db)):
+    # TODO: check if project is publically listed or by signed-in user
+
     project = db.query(Project).filter(Project.id == project_id).first()
     if project is None:
         raise HTTPException(status_code=404, detail=f"Project with id {project_id} not found")
@@ -41,6 +44,7 @@ async def create_project(project: ProjectSchema,
         raise HTTPException(status_code=400, detail="Project already created")
 
     new_project = Project(**project.model_dump())
+    new_project.user_id = current_user.id
     db.add(new_project)
     db.commit()
     db.refresh(new_project)
@@ -59,7 +63,7 @@ async def load_project(project_id: str,
     project = db.query(Project).filter(Project.id == project_id).first()
     if project is None:
         raise HTTPException(status_code=404, detail=f"Project with id {project_id} not found")
-    # TODO: check if project is publically listed
+    # TODO: check if project is publically listed or by signed-in user
 
     project_path = files_manager.get_files_root().joinpath(str(project.id).strip())
     file_location = f"{project_path}/project.pytch"
@@ -120,3 +124,34 @@ def delete_project(project_id: str,
     db.delete(project)
     db.commit()
     return api_response(message="Project deleted successfully")
+
+# GET Projects by signed-in User
+@router.get("/user-profile/projects")
+async def read_current_user_projects(
+        current_user: Annotated[User, Depends(get_current_user)],
+        db: Session = Depends(get_db)):
+    user_id = current_user.id
+
+    # get projects by user id
+    projects = db.query(Project).filter(Project.user_id == user_id).all()
+    # projects = db.query(Project).all()
+
+    return api_response(data=projects, message=f"All projects with user_id {user_id} retrieved")
+
+# GET Projects by User
+@router.get("/users/{user_id}/projects")
+async def read_current_user_projects(
+        current_user: Annotated[User, Depends(get_current_user)],
+        user_id: str,
+        db: Session = Depends(get_db)):
+
+    # get projects by user id TODO: check if user_id exists
+    message = ""
+    if current_user.role == UserRoles.ADMIN:
+        projects = db.query(Project).filter(Project.user_id == user_id)
+        message = f"All projects with user_id {user_id} retrieved"
+    else:
+        projects = db.query(Project).filter(Project.user_id == user_id and Project.archived == False and Project.status == ProjectStatus.LISTED)
+        f"All public projects with user_id {user_id} retrieved"
+
+    return api_response(data=projects, message=message)

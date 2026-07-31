@@ -20,13 +20,14 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_expiry_time)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_access_token_expiry_time)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
     return encoded_jwt
 
 class Token(BaseModel):
     access_token: str
+    # refresh_token: str # TODO: implement refresh tokens
     token_type: str
 
 class TokenData(BaseModel):
@@ -59,3 +60,11 @@ async def get_current_active_user(
     return current_user
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+def check_if_user_exists_and_active(current_user: Annotated[User, Depends(get_current_user)]):
+    if current_user is None:
+        raise HTTPException(status_code=401, detail=f"No user signed in")
+
+    if not current_user.active:
+        raise HTTPException(status_code=401, detail=f"Current user with id {current_user.id} is not active")
+

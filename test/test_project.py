@@ -5,8 +5,6 @@ from fastapi.testclient import TestClient
 
 from db.database import init_db
 from main import app
-from schemas.project_schema import ProjectSchema
-from schemas.user_schema import UserSchema
 from utils.files_manager import get_test_resources_root
 from utils.response_wrapper import api_response
 from utils.test_utils import sign_up_user, create_test_user_schema, sign_in_user, create_test_project_schema
@@ -191,10 +189,14 @@ def test_delete_project():
     response = client.get(
         f"/api/projects/{project.id}",
         headers={"Authorization": f"Bearer {access_token}"}
-)
+    )
 
     assert response.status_code == HTTPStatus.NOT_FOUND
+
+# TODO: READ Single Project - Found
 
 # TODO: UPDATE Project - project code
 
 # TODO: UPDATE Project - non-default asset
+
+# TODO: DOWNLOAD Project - listed (no user/token required)
